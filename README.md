@@ -18,5 +18,6 @@ This Bash script is designed for monitoring logs and resource usage on a Linux s
 
 1. Clone the repository or download the script file.
    ```bash
-   git clone https://github.com/yourusername/linux-log-monitor.git
-   cd linux-log-monitor
+   git clone https://github.com/kallmekami/resusage
+   cd resusage
+   ./resusage <username> <service>
