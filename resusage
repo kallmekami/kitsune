@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 # Check if a username is provided as an argument
 if [ "$#" -lt 1 ]; then
     echo "Usage: $0 <username> [service]"
@@ -12,7 +10,16 @@ TARGET_USER="$1"
 TARGET_SERVICE="$2"
 
 # Define the log files to monitor
-LOG_FILES=("/var/log/syslog" "/var/log/auth.log")
+LOG_FILES=(
+    "/var/log/syslog"
+    "/var/log/auth.log"
+    "/var/log/maillog"
+    "/var/log/httpd/access_log"
+    "/var/log/httpd/error_log"
+    "/var/log/messages"
+    "/var/log/secure"
+    "/var/log/fail2ban.log"
+)
 
 # Define the patterns and their corresponding colors
 declare -A PATTERNS=(
@@ -36,10 +43,10 @@ monitor_logs() {
         
         if [[ -f $LOG_FILE ]]; then
             echo -e "\n\033[1;33m----------------------------------------\033[0m"
-            echo -e "\033[1;33mUser Log Entries (High Priority):\033[0m"
+            echo -e "\033[1;33mUser Log Entries:\033[0m"
             echo -e "\033[1;33m----------------------------------------\033[0m"
             
-            # Extract and display relevant log lines for high-priority errors and warnings
+            # Extract and display relevant log lines
             if [[ -n "$TARGET_SERVICE" ]]; then
                 grep -i "$TARGET_USER" "$LOG_FILE" | grep -i "$TARGET_SERVICE" | grep -E "error|failed|warning|success|login|logout" | tail -n 10 | while read -r line; do
                     # Format the log line for better readability
@@ -150,45 +157,8 @@ monitor_resource_usage() {
             printf "%-15s %-10.2f %-10.2f %-10.2f %-10.2f\n", $1, $2, $3, mem_mb, net_rx_kb;
         }'
     fi
-    
-    echo "-----------------------------------------"
 }
 
-# Function to monitor services and their resource usage for the specific user and optional service
-monitor_services() {
-    echo -e "\n\033[1;36m========================================\033[0m"
-    echo -e "\033[1;36m       Running Services Monitoring      \033[0m"
-    echo -e "\033[1;36m========================================\033[0m"
-    printf "%-15s %-30s %-10s %-10s %-10s %-10s\n" "User" "Service" "PID" "CPU (%)" "Memory (MB)" "Net RX (KB)"
-    echo "-----------------------------------------"
-
-    # Get running services along with their user, PID, CPU, Memory usage, and network usage
-    if [[ -n "$TARGET_SERVICE" ]]; then
-        # If a service is specified, filter by service name
-        ps -u "$TARGET_USER" -o user,comm,pid,%cpu,%mem --sort=-%cpu | grep -i "$TARGET_SERVICE" | awk -v total_mem="$total_mem" 'NR>1 {
-            mem_mb = ($4 * total_mem / 100);
-            cmd="ss -p | grep " $2 " | awk '\''{print $6}'\''"
-            cmd | getline net_rx;
-            close(cmd);
-            net_rx_kb = (net_rx == "" ? 0 : net_rx / 1024); # Convert to KB
-            printf "%-15s %-30s %-10s %-10.2f %-10.2f %-10.2f\n", $1, $2, $3, $4, mem_mb, net_rx_kb;
-        }'
-    else
-        # If no service specified, show all user processes
-        ps -u "$TARGET_USER" -o user,comm,pid,%cpu,%mem --sort=-%cpu | awk -v total_mem="$total_mem" 'NR>1 {
-            mem_mb = ($4 * total_mem / 100);
-            cmd="ss -p | grep " $2 " | awk '\''{print $6}'\''"
-            cmd | getline net_rx;
-            close(cmd);
-            net_rx_kb = (net_rx == "" ? 0 : net_rx / 1024); # Convert to KB
-            printf "%-15s %-30s %-10s %-10.2f %-10.2f %-10.2f\n", $1, $2, $3, $4, mem_mb, net_rx_kb;
-        }'
-    fi
-    
-    echo "-----------------------------------------"
-}
-
-# Run the functions in the order of priority
+# Run the functions
 monitor_logs
 monitor_resource_usage
-monitor_services
