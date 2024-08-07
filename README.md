@@ -20,4 +20,4 @@ This Bash script is designed for monitoring logs and resource usage on a Linux s
    ```bash
    git clone https://github.com/kallmekami/resusage.git
    cd resusage
-   ./resusage <username> <service>
+   ./resusage
