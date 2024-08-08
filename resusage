@@ -11,7 +11,7 @@ check_install_package() {
 }
 
 # Required packages
-required_packages=(bc awk grep ss column)
+required_packages=(bc awk grep ss column vnstat)
 
 # Check and install required packages
 echo "Checking for required packages..."
@@ -31,67 +31,6 @@ echo "========================================"
 echo "           Monitoring Logs              "
 echo "========================================"
 
-user_logs() {
-    local username=$1
-
-    echo "Logs for user: ${username}"
-
-    echo
-    echo "Checking /var/log/syslog..."
-    echo
-    echo "----------------------------------------"
-    echo "User Log Entries:"
-    echo "----------------------------------------"
-    grep -i "$username" /var/log/syslog | tail -n 10 | while read -r line; do
-        if echo "$line" | grep -iq "error"; then
-            echo "${RED}${line}${RESET}"
-        elif echo "$line" | grep -iq "warn"; then
-            echo "${YELLOW}${line}${RESET}"
-        elif echo "$line" | grep -iq "login"; then
-            echo "${GREEN}${line}${RESET}"
-        elif echo "$line" | grep -iq "logout"; then
-            echo "${YELLOW}${line}${RESET}"
-        else
-            echo "$line"
-        fi
-    done
-
-    echo
-    echo "Checking /var/log/auth.log..."
-    echo
-    echo "----------------------------------------"
-    echo "User Log Entries:"
-    echo "----------------------------------------"
-    grep -i "$username" /var/log/auth.log | tail -n 10 | while read -r line; do
-        if echo "$line" | grep -iq "error"; then
-            echo "${RED}${line}${RESET}"
-        elif echo "$line" | grep -iq "warn"; then
-            echo "${YELLOW}${line}${RESET}"
-        elif echo "$line" | grep -iq "login"; then
-            echo "${GREEN}${line}${RESET}"
-        elif echo "$line" | grep -iq "logout"; then
-            echo "${YELLOW}${line}${RESET}"
-        else
-            echo "$line"
-        fi
-    done
-
-    log_files=("/var/log/maillog" "/var/log/httpd/access_log" "/var/log/httpd/error_log" "/var/log/messages" "/var/log/secure" "/var/log/fail2ban.log")
-    for log_file in "${log_files[@]}"; do
-        echo
-        echo "Checking ${log_file}..."
-        if [ -f "$log_file" ]; then
-            echo
-            echo "----------------------------------------"
-            echo "User Log Entries:"
-            echo "----------------------------------------"
-            grep -i "$username" "$log_file" | tail -n 10
-        else
-            echo "Log file ${log_file} does not exist."
-        fi
-    done
-}
-
 service_logs() {
     local service=$1
 
@@ -99,12 +38,15 @@ service_logs() {
     echo "            Service Logs                "
     echo "========================================"
 
-    echo "Checking /var/log/syslog for service logs..."
+    # Check the log file for the specified service
+    log_file="/var/log/syslog"  # You can change this to the appropriate log file for your service
+    echo "Checking ${log_file} for service: ${service}"
     echo
     echo "----------------------------------------"
     echo "Service Log Entries:"
     echo "----------------------------------------"
-    grep -i "$service" /var/log/syslog | tail -n 10 | while read -r line; do
+    
+    grep -i "$service" "$log_file" | while read -r line; do
         if echo "$line" | grep -iq "error"; then
             echo "${RED}${line}${RESET}"
         elif echo "$line" | grep -iq "warn"; then
@@ -117,45 +59,39 @@ service_logs() {
 
 resource_usage() {
     local username=$1
-    local service=$2
 
     echo "========================================"
-    echo "       Resource Usage Monitoring        "
+    echo "       Total Resource Usage             "
     echo "========================================"
-    
-    echo
-    printf "%-15s %-10s %-10s %-10s\n" "User" "CPU (%)" "Memory (%)" "Memory (MB)"
-    echo "------------------------------------------------------------"
-    
-    ps -u "$username" -o user,pcpu,pmem,rss | grep -v "USER" | awk -v username="$username" '{rss_MB = $4 / 1024; printf "%-15s %-10.2f %-10.2f %-10.2f\n", $1, $2, $3, rss_MB}' | column -t
-    
-    echo
 
-    echo "Service Resource Usage for $service"
-    echo "========================================"
-    printf "%-15s %-10s %-10s %-10s\n" "Service" "CPU (%)" "Memory (%)" "Memory (MB)"
-    echo "------------------------------------------------------------"
-    
-    ps -u "$username" -o comm,pcpu,pmem,rss | grep -v "COMMAND" | grep "$service" | awk '{rss_MB = $4 / 1024; printf "%-15s %-10.2f %-10.2f %-10.2f\n", $1, $2, $3, rss_MB}' | column -t
-    
-    echo
-
+    # Calculate total CPU usage
     total_cpu=$(ps -u "$username" -o pcpu= | awk '{sum += $1} END {print sum}')
-    total_mem=$(ps -u "$username" -o rss= | awk '{sum += $1} END {print sum / 1024}')
+    
+    # Calculate total memory usage (RSS in MB)
+    total_mem=$(ps -u "$username" -o rss= | awk '{sum += $1} END {print sum / 1024}')  # Convert from KB to MB
 
-    echo "========================================"
-    echo "               Total Usage              "
-    echo "========================================"
+    # Get total bandwidth usage
+    # Assuming vnstat is monitoring the network interfaces
+    bandwidth_info=$(vnstat --oneline | awk -F';' '{print $9}')
+
+    # Output results
     echo "Total CPU Usage: $total_cpu %"
     echo "Total Memory Usage: $total_mem MB"
+    echo "Total Bandwidth Usage: $bandwidth_info"
 }
 
 # Get username input
 read -rp "Enter the username to monitor: " username
+
+# Suggest available services
+echo "Available services to monitor:"
+# Get the list of active services
+active_services=$(systemctl list-units --type=service --state=running | awk '{print $1}' | sed 's/.service//')
+echo "${active_services}"
+
 # Get service input
 read -rp "Enter the service to monitor: " service
 
 # Run functions
-user_logs "$username"
 service_logs "$service"
-resource_usage "$username" "$service"
+resource_usage "$username"
