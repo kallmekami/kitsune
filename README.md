@@ -18,6 +18,6 @@ This Bash script is designed for monitoring logs and resource usage on a Linux s
 
 1. Clone the repository or download the script file.
    ```bash
-   git clone https://github.com/kallmekami/resusage.git
-   cd resusage
-   ./resusage
+   git clone https://github.com/kallmekami/kitsune.git
+   cd kitsune
+   ./kitsune
