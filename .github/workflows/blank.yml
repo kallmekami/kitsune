@@ -1,0 +1,24 @@
+name: Run Kitsune Script
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual run from Actions tab
+
+jobs:
+  run-kitsune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make script executable
+        run: chmod +x kitsune
+
+      - name: Install required packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc awk grep iproute2 bsdmainutils vnstat
+
+      - name: Run kitsune script
+        run: ./kitsune root nginx
